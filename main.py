@@ -1,7 +1,7 @@
 from tkinter import *
 from tkinter import messagebox
 from random import randint, choice, shuffle
-import pyperclip, re
+import pyperclip, re, json
 
 # --------------------------------- VALIDATION ---------------------------------- #
 def is_valid_domain(domain):
@@ -46,6 +46,12 @@ def save():
     website = website_entry.get().strip()
     email = email_entry.get().strip()
     password = password_entry.get()
+    new_data = {
+        website: {
+            "email": email,
+            "password": password
+        }
+    }
 
     if website == "" or email == "" or password == "":
         messagebox.showerror("Oops", "Please don't leave any fields empty")
@@ -83,13 +89,45 @@ def save():
     if not is_ok:
         return
 
-    with open("data.txt", "a") as file:
-        file.write(f"{website} | {email} | {password}\n")
+    # Runs Below If Everything Is OK
+    try:
+        with open("data.json", "r") as data_file:
+            #  Reading old data
+            data = json.load(data_file)
+    except FileNotFoundError:
+        # Create the file and add the data
+        with open("data.json", "w") as data_file:
+            json.dump(new_data, data_file, indent=4)
+    else:
+        # Updating old data with new data
+        data.update(new_data)
 
-    website_entry.delete(0, END)
-    password_entry.delete(0, END)
+        with open("data.json", "w") as data_file:
+            # Saving updated data
+            json.dump(data, data_file, indent=4)
+    finally:
+        website_entry.delete(0, END)
+        password_entry.delete(0, END)
 
     pyperclip.copy(password)
+
+# ---------------------------- UI SETUP ------------------------------- #
+def search():
+    try:
+        website_name = website_entry.get()
+        with open("data.json", "r") as data_file:
+            data = json.load(data_file)
+            creds = data[website_name]
+    except KeyError:
+        messagebox.showerror("Not Found", f"No details for this website exists")
+    except FileNotFoundError as e:
+        messagebox.showerror("Not Found", f"No details for this website exists")
+    else:
+        email_entry.delete(0, END)
+        password_entry.delete(0, END)
+
+        email_entry.insert(0, creds["email"])
+        password_entry.insert(0, creds["password"])
 
 # ---------------------------- UI SETUP ------------------------------- #
 root = Tk()
@@ -115,7 +153,7 @@ password_label.grid(row=3, column=0)
 # Entry
 website_entry = Entry(width=35)
 website_entry.focus()
-website_entry.grid(row=1, column=1, columnspan=2, sticky="EW")
+website_entry.grid(row=1, column=1, sticky="EW")
 email_entry = Entry(width=35)
 email_entry.insert(0, "emailid@example.com")
 email_entry.grid(row=2, column=1, columnspan=2, sticky="EW")
@@ -127,5 +165,7 @@ password_generate_button = Button(text="Generate Password", command=generate_pas
 password_generate_button.grid(row=3, column=2, sticky="EW")
 add_button = Button(text="Add", width=36, command=save)
 add_button.grid(row=4, column=1, columnspan=2, sticky="EW")
+search_button = Button(text="Search", command=search)
+search_button.grid(row=1, column=2, sticky="EW")
 
 root.mainloop()
